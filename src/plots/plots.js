@@ -2869,11 +2869,11 @@ function sortAxisCategoriesByValue(axList, gd) {
                     var cdi = cd[k];
                     var cat, value, orientation;
 
-                    if(ax._id[0] === 'x') {
+                    if(ax._id.charAt(0) === 'x') {
                         cat = cdi.x;
                         value = cdi.y;
                         orientation = 'h';
-                    } else if(ax._id[0] === 'y') {
+                    } else if(ax._id.charAt(0) === 'y') {
                         cat = cdi.y;
                         value = cdi.x;
                         orientation = 'v';
