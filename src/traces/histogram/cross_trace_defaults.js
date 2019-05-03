@@ -68,7 +68,9 @@ module.exports = function crossTraceDefaults(fullData, fullLayout) {
             // https://github.com/plotly/plotly.js/issues/749
             delete traceOut._autoBinFinished;
 
-            handleGroupingDefaults(traceOut._input, traceOut, fullLayout, coerce);
+            if(!traceIs(traceOut, '2dMap')) {
+                handleGroupingDefaults(traceOut._input, traceOut, fullLayout, coerce);
+            }
         }
     }
 
@@ -78,7 +80,7 @@ module.exports = function crossTraceDefaults(fullData, fullLayout) {
     for(i = 0; i < histTraces.length; i++) {
         traceOut = histTraces[i];
 
-        if(!isOverlay) {
+        if(!isOverlay && !traceIs(traceOut, '2dMap')) {
             groupName = (
                 axisIds.getAxisGroup(fullLayout, traceOut.xaxis) +
                 axisIds.getAxisGroup(fullLayout, traceOut.yaxis) +
@@ -140,7 +142,9 @@ module.exports = function crossTraceDefaults(fullData, fullLayout) {
     for(i = 0; i < otherTracesList.length; i++) {
         traceOut = otherTracesList[i];
 
-        var binDirections = [orientation2binDir()];
+        var binDirections = traceIs(traceOut, '2dMap') ?
+            ['x', 'y'] :
+            [orientation2binDir()];
 
         for(k = 0; k < binDirections.length; k++) {
             binDir = binDirections[k];
@@ -208,8 +212,9 @@ module.exports = function crossTraceDefaults(fullData, fullLayout) {
                     binOpts[attr + 'Found'] = true;
                     break;
                 }
-                var autoVals = traceOut._autoBin;
-                if(autoVals && autoVals[attr]) {
+
+                autoVals = (traceOut._autoBin || {})[binDir] || {};
+                if(autoVals[attr]) {
                     // if this is the *first* autoval
                     nestedProperty(traceOut, aStr).set(autoVals[attr]);
                 }
@@ -218,9 +223,10 @@ module.exports = function crossTraceDefaults(fullData, fullLayout) {
             // first of each into binOpts, in case a trace wants to restrict its
             // data to a certain range
             if(attr === 'start' || attr === 'end') {
-                for(; i < binOpts.traces.length; i++) {
-                    traceOut = binOpts.traces[i];
-                    coerce(aStr, (traceOut._autoBin || {})[attr]);
+                for(; i < traces.length; i++) {
+                    traceOut = traces[i];
+                    autoVals = (traceOut._autoBin || {})[binDir] || {};
+                    coerce(aStr, autoVals[attr]);
                 }
             }
 
