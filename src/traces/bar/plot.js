@@ -389,7 +389,6 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
     var dx = Math.max(lx * Math.abs(cos), ly * Math.abs(sin));
     var dy = Math.max(lx * Math.abs(sin), ly * Math.abs(cos));
 
-    // apply text padding
     var textpad;
     if(dx > (2 * TEXTPAD) && dy > (2 * TEXTPAD)) {
         textpad = TEXTPAD;
@@ -401,32 +400,31 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
             Math.abs(Math.cos(rotation)),
             Math.abs(Math.sin(rotation))
     );
-
     if(constrained) {
-        scale = Math.min(dx / textWidth, dy / textHeight);
-        if(isAutoRotated) {
-            scale = Math.min(dx / textWidth, dy / textHeight);
-        }
+        scale = Math.min(
+            Math.abs(dx / textWidth),
+            Math.abs(dy / textHeight)
+        );
     }
+    scale = Math.min(1, scale);
 
     // compute text and target positions
     var targetX = (x0 + x1) / 2;
     var targetY = (y0 + y1) / 2;
 
     if(anchor !== 'middle') {
-        var targetWidth = scale * (isAutoRotated ? textHeight : textWidth);
-        var targetHeight = scale * (isAutoRotated ? textWidth : textHeight);
+        var flip = xor(!isHorizontal, isAutoRotated);
+        var offset = textpad + (0.5 * scale * (flip ? textBB.width : textBB.height));
 
-        var offset;
         if(isHorizontal) {
-            offset = (textpad + targetWidth / 2) * dirSign(x0, x1);
+            offset *= dirSign(x0, x1);
             if(anchor === 'start') {
                 targetX = x0 + offset;
             } else { // case 'end'
                 targetX = x1 - offset;
             }
         } else {
-            offset = (textpad + targetHeight / 2) * dirSign(y0, y1);
+            offset *= dirSign(y0, y1);
             if(anchor === 'start') {
                 targetY = y0 + offset;
             } else { // case 'end'
@@ -435,9 +433,13 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
         }
     }
 
-    if(isAutoRotated) rotation -= 90;
+    if(isAutoRotated) rotation += 90;
 
     return getTransform(textX, textY, targetX, targetY, scale, rotation);
+}
+
+function xor(a, b) {
+    return (a && b) || !(a || b);
 }
 
 function getTransformToMoveOutsideBar(x0, x1, y0, y1, textBB, isHorizontal, constrained, angle) {
