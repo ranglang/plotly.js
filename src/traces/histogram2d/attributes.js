@@ -44,6 +44,14 @@ module.exports = extendFlat(
         autobinx: histogramAttrs.autobinx,
         autobiny: histogramAttrs.autobiny,
 
+        bingroup: extendFlat({}, histogramAttrs.bingroup, {
+            description: [
+                'Set a group of histogram traces which will have compatible bin settings.',
+                'Using `bingroup`, histogram2d and histogram2dcontour traces ',
+                '(on axes of the same axis type) can have compatible bin settings.'
+            ].join(' ')
+        }),
+
         xgap: heatmapAttrs.xgap,
         ygap: heatmapAttrs.ygap,
         zsmooth: heatmapAttrs.zsmooth,

@@ -315,6 +315,25 @@ describe('Test histogram', function() {
             ]);
         });
 
+        it('should not group histogram2d* traces by default', function() {
+            gd = {
+                data: [
+                    {uid: 'a', type: 'histogram2d', x: [1], y: [1]},
+                    {uid: 'b', type: 'histogram2d', x: [2], y: [2]},
+                    {uid: 'c', type: 'histogram2dcontour', x: [1], y: [1], xaxis: 'x2', yaxis: 'y2'},
+                    {uid: 'd', type: 'histogram2dcontour', x: [2], y: [2], xaxis: 'x2', yaxis: 'y2'},
+                ],
+                layout: {}
+            };
+            supplyAllDefaults(gd);
+            _assert('', [
+                ['a__x', [0]], ['a__y', [0]],
+                ['b__x', [1]], ['b__y', [1]],
+                ['c__x', [2]], ['c__y', [2]],
+                ['d__x', [3]], ['d__y', [3]]
+            ]);
+        });
+
         it('should be able to group traces by *bingroup* under barmode:overlay ', function() {
             gd = {
                 data: [
@@ -337,6 +356,22 @@ describe('Test histogram', function() {
                 ['3', [6, 8]],
                 ['b__y', [1]],
                 ['f__y', [5]]
+            ]);
+        });
+
+        it('should be able to group histogram and histogram2d* traces together', function() {
+            gd = {
+                data: [
+                    {bingroup: '1', type: 'histogram', y: [1]},
+                    {bingroup: '1', type: 'histogram', y: [3], xaxis: 'x2'},
+                    {bingroup: '1', type: 'histogram2d', x: [1], y: [3]},
+                    {bingroup: '1', type: 'histogram2dcontour', x: [1], y: [3]}
+                ],
+                layout: {barmode: 'overlay'}
+            };
+            supplyAllDefaults(gd);
+            _assert('N.B. histogram2d* indices show up twice, once for x-bins, once for y-bins', [
+                ['1', [0, 1, 2, 2, 3, 3]],
             ]);
         });
 
