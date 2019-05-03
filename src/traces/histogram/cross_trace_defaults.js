@@ -9,11 +9,13 @@
 'use strict';
 
 var Lib = require('../../lib');
-var nestedProperty = Lib.nestedProperty;
+var axisIds = require('../../plots/cartesian/axis_ids');
 
+var traceIs = require('../../registry').traceIs;
 var handleGroupingDefaults = require('../bar/defaults').handleGroupingDefaults;
-var getAxisGroup = require('../../plots/cartesian/axis_ids').getAxisGroup;
 var attributes = require('./attributes');
+
+var nestedProperty = Lib.nestedProperty;
 
 var BINATTRS = {
     x: [
@@ -34,46 +36,162 @@ var BINATTRS = {
 module.exports = function crossTraceDefaults(fullData, fullLayout) {
     var allBinOpts = fullLayout._histogramBinOpts = {};
     var isOverlay = fullLayout.barmode === 'overlay';
-    var i, j, traceOut, traceIn, binDirection, group, binOpts;
 
-    function coerce(attr) {
-        return Lib.coerce(traceOut._input, traceOut, attributes, attr);
+    var histTraces = [];
+    var mustMatchTracesLookup = {};
+    var otherTracesList = [];
+    var traces;
+
+    var traceOut, binDir, binOpts, groupName;
+    var i, j, k;
+
+    function coerce(attr, dflt) {
+        return Lib.coerce(traceOut._input, traceOut, attributes, attr, dflt);
+    }
+
+    function orientation2binDir() {
+        return traceOut.orientation === 'v' ? 'x' : 'y';
+    }
+
+    function getAxisType() {
+        var ax = axisIds.getFromTrace({_fullLayout: fullLayout}, traceOut, binDir);
+        return ax.type;
     }
 
     for(i = 0; i < fullData.length; i++) {
         traceOut = fullData[i];
-        if(traceOut.type !== 'histogram') continue;
 
-        // TODO: this shouldn't be relinked as it's only used within calc
-        // https://github.com/plotly/plotly.js/issues/749
-        delete traceOut._autoBinFinished;
+        if(traceIs(traceOut, 'histogram')) {
+            histTraces.push(traceOut);
 
-        binDirection = traceOut.orientation === 'v' ? 'x' : 'y';
-        // in overlay mode make a separate group for each trace
-        // otherwise collect all traces of the same subplot & orientation
-        group = traceOut._groupName = isOverlay ? traceOut.uid : (
-            getAxisGroup(fullLayout, traceOut.xaxis) +
-            getAxisGroup(fullLayout, traceOut.yaxis) +
-            binDirection
-        );
-        binOpts = allBinOpts[group];
+            // TODO: this shouldn't be relinked as it's only used within calc
+            // https://github.com/plotly/plotly.js/issues/749
+            delete traceOut._autoBinFinished;
 
-        if(binOpts) {
-            binOpts.traces.push(traceOut);
-        } else {
-            binOpts = allBinOpts[group] = {
-                traces: [traceOut],
-                direction: binDirection
-            };
+            handleGroupingDefaults(traceOut._input, traceOut, fullLayout, coerce);
         }
-
-        handleGroupingDefaults(traceOut._input, traceOut, fullLayout, coerce);
     }
 
-    for(group in allBinOpts) {
-        binOpts = allBinOpts[group];
-        binDirection = binOpts.direction;
-        var attrs = BINATTRS[binDirection];
+    // Look for traces that "have to match", that is:
+    // - 1d histogram traces on the same subplot with same orientation under barmode:stack,
+    // - 1d histogram traces on the same subplot with same orientation under barmode:group
+    for(i = 0; i < histTraces.length; i++) {
+        traceOut = histTraces[i];
+
+        if(!isOverlay) {
+            groupName = (
+                axisIds.getAxisGroup(fullLayout, traceOut.xaxis) +
+                axisIds.getAxisGroup(fullLayout, traceOut.yaxis) +
+                orientation2binDir()
+            );
+
+            if(!mustMatchTracesLookup[groupName]) mustMatchTracesLookup[groupName] = [];
+            mustMatchTracesLookup[groupName].push(traceOut);
+        } else {
+            otherTracesList.push(traceOut);
+        }
+    }
+
+    // setup binOpts for traces that have to match,
+    // if the traces have a valid bingroup, use that
+    // if not use axis+binDir groupName
+    for(groupName in mustMatchTracesLookup) {
+        traces = mustMatchTracesLookup[groupName];
+
+        // no need to 'force' anything when a single
+        // trace is detected as "must match"
+        if(traces.length === 1) {
+            otherTracesList.push(traces[0]);
+            continue;
+        }
+
+        var binGroupFound = false;
+        for(i = 0; i < traces.length; i++) {
+            traceOut = traces[i];
+            binGroupFound = coerce('bingroup');
+            break;
+        }
+
+        groupName = binGroupFound || groupName;
+
+        for(i = 0; i < traces.length; i++) {
+            traceOut = traces[i];
+            var bingroupIn = traceOut._input.bingroup;
+            if(bingroupIn && bingroupIn !== groupName) {
+                Lib.warn([
+                    'Trace', traceOut.index, 'must match',
+                    'within bingroup', groupName + '.',
+                    'Ignoring its bingroup:', bingroupIn, 'setting.'
+                ].join(' '));
+            }
+            traceOut.bingroup = groupName;
+        }
+
+        binDir = orientation2binDir();
+        allBinOpts[groupName] = {
+            traces: traces,
+            binDir: binDir,
+            axType: getAxisType()
+        };
+    }
+
+    // setup binOpts for traces that can but don't have to match,
+    // notice that these traces can be matched with traces that have to match
+    for(i = 0; i < otherTracesList.length; i++) {
+        traceOut = otherTracesList[i];
+
+        var binDirections = [orientation2binDir()];
+
+        for(k = 0; k < binDirections.length; k++) {
+            binDir = binDirections[k];
+            groupName = coerce('bingroup');
+
+            // N.B. group traces that don't have a bingroup with themselves
+            // using trace uid and bin direction
+            var fallbackGroupName = traceOut.uid + '__' + binDir;
+            if(!groupName) groupName = fallbackGroupName;
+
+            var axType = getAxisType();
+            binOpts = allBinOpts[groupName];
+
+            if(binOpts) {
+                if(axType === binOpts.axType) {
+                    binOpts.traces.push(traceOut);
+                } else {
+                    allBinOpts[fallbackGroupName] = {
+                        traces: [traceOut],
+                        binDir: binDir,
+                        axType: axType
+                    };
+                    Lib.warn([
+                        'Attempted to group the bins of trace', traceOut.index,
+                        'set on a', 'type:' + axType, 'axis',
+                        'with bins on', 'type:' + binOpts.axType, 'axis.'
+                    ].join(' '));
+                }
+            } else {
+                binOpts = allBinOpts[groupName] = {
+                    traces: [traceOut],
+                    binDir: binDir,
+                    axType: axType
+                };
+            }
+        }
+    }
+
+    for(groupName in allBinOpts) {
+        binOpts = allBinOpts[groupName];
+        binDir = binOpts.binDir;
+        traces = binOpts.traces;
+
+        // setup trace-to-binOpts reference used during calc
+        for(i = 0; i < traces.length; i++) {
+            traces[i]['_groupName' + binDir] = groupName;
+        }
+
+        var attrs = BINATTRS[binDir];
+        var autoVals;
+
         for(j = 0; j < attrs.length; j++) {
             var attrSpec = attrs[j];
             var attr = attrSpec.name;
@@ -83,10 +201,9 @@ module.exports = function crossTraceDefaults(fullData, fullLayout) {
             if(attr === 'nbins' && binOpts.sizeFound) continue;
 
             var aStr = attrSpec.aStr;
-            for(i = 0; i < binOpts.traces.length; i++) {
-                traceOut = binOpts.traces[i];
-                traceIn = traceOut._input;
-                if(nestedProperty(traceIn, aStr).get() !== undefined) {
+            for(i = 0; i < traces.length; i++) {
+                traceOut = traces[i];
+                if(nestedProperty(traceOut._input, aStr).get() !== undefined) {
                     binOpts[attr] = coerce(aStr);
                     binOpts[attr + 'Found'] = true;
                     break;
@@ -108,7 +225,7 @@ module.exports = function crossTraceDefaults(fullData, fullLayout) {
             }
 
             if(attr === 'nbins' && !binOpts.sizeFound && !binOpts.nbinsFound) {
-                traceOut = binOpts.traces[0];
+                traceOut = traces[0];
                 binOpts[attr] = coerce(aStr);
             }
         }
