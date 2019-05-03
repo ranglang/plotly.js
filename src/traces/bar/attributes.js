@@ -100,8 +100,6 @@ module.exports = {
     textangle: {
         valType: 'angle',
         dflt: 'auto',
-        min: -90,
-        max: 90,
         role: 'info', // TODO: or style ?
         editType: 'plot',
         description: [
