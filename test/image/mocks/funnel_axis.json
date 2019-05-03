@@ -13,6 +13,7 @@
                 2,
                 1
             ],
+            "textangle": 0,
             "textinfo": "value+percent initial+percent previous+percent total"
         },
         {
@@ -30,6 +31,7 @@
             ],
             "textposition": "inside",
             "insidetextanchor": "start",
+            "textangle": 0,
             "textinfo": "value+percent initial+percent previous+percent total",
             "xaxis": "x2",
             "yaxis": "y2"
@@ -49,6 +51,7 @@
             ],
             "textposition": "inside",
             "insidetextanchor": "end",
+            "textangle": 0,
             "textinfo": "value+percent initial+percent previous+percent total",
             "xaxis": "x3",
             "yaxis": "y3"
@@ -68,6 +71,7 @@
             ],
             "textposition": "outside",
             "cliponaxis": false,
+            "textangle": 0,
             "textinfo": "value+percent initial+percent previous+percent total",
             "xaxis": "x4",
             "yaxis": "y4"
