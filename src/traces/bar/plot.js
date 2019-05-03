@@ -383,10 +383,28 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
     } else if(textWidth <= dy && textHeight <= dx && autoRotate) {
         rotation = 90;
     } else if(((textWidth < textHeight) === (dx < dy)) || !autoRotate) {
-        if(constrained) scale = Math.min(dx / textWidth, dy / textHeight);
+        //if(constrained) scale = Math.min(dx / textWidth, dy / textHeight);
     } else {
-        rotation = 90;
-        if(constrained) scale = Math.min(dy / textWidth, dx / textHeight);
+        //rotation = 90;
+        //if(constrained) scale = Math.min(dy / textWidth, dx / textHeight);
+    }
+/*
+    var isRotated = !!(Math.round((360 + rotation) / 90) % 1);
+
+    scale *= (isRotated) ?
+        Math.abs(Math.cos(rotation)) :
+        Math.abs(Math.sin(rotation));
+*/
+    scale *= Math.max(
+            Math.abs(Math.cos(rotation)),
+            Math.abs(Math.sin(rotation))
+    );
+
+    if(constrained) {
+        scale = Math.min(
+            Math.min(dx / textWidth, dy / textHeight),
+            Math.min(dy / textWidth, dx / textHeight)
+        );
     }
 
     // compute text and target positions
@@ -394,8 +412,12 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
     var targetY = (y0 + y1) / 2;
 
     if(anchor !== 'middle') {
-        var targetWidth = scale * Math.abs(textWidth * Math.cos(rotation) - textHeight * Math.sin(rotation));
-        var targetHeight = scale * Math.abs(textWidth * Math.sin(rotation) - textHeight * Math.cos(rotation));
+
+
+        //var targetWidth = scale * textWidth; //(isRotated ? textHeight : textWidth);  //* Math.abs(Math.sin(rotation));
+        //var targetHeight = scale * textHeight; //(isRotated ? textWidth : textHeight); //* Math.abs(Math.cos(rotation));
+        var targetWidth = scale * Math.max(textWidth, textHeight); //(isRotated ? textHeight : textWidth);  //* Math.abs(Math.sin(rotation));
+        var targetHeight = scale * Math.max(textWidth, textHeight); //(isRotated ? textWidth : textHeight); //* Math.abs(Math.cos(rotation));
 
         var offset;
         if(isHorizontal) {
