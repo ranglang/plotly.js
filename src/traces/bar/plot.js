@@ -355,9 +355,25 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
     var textHeight = textBB.height;
     var textX = (textBB.left + textBB.right) / 2;
     var textY = (textBB.top + textBB.bottom) / 2;
+    var barWidth = Math.abs(x1 - x0);
+    var barHeight = Math.abs(y1 - y0);
 
-    var autoRotate = (angle === 'auto');
     var rotation = getRotationFromAngle(angle);
+    var autoRotate = (angle === 'auto');
+    var isAutoRotated = false;
+    if(autoRotate) {
+        if(textWidth <= barWidth && textHeight <= barHeight) {
+            // no rotation is required
+        } else if(textWidth <= barHeight && textHeight <= barWidth) {
+            //rotation += 90;
+            isAutoRotated = true;
+
+
+            var tmp = textHeight;
+            textHeight = textWidth;
+            textWidth = tmp;
+        }
+    }
 
     var sin = Math.sin(rotation);
     var cos = Math.cos(rotation);
@@ -376,18 +392,6 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
         dy -= 2 * textpad;
     } else textpad = 0;
 
-    // compute rotation and scale
-    var scale = 1;
-    if(textWidth <= dx && textHeight <= dy) {
-        // no scale or rotation is required
-    } else if(textWidth <= dy && textHeight <= dx && autoRotate) {
-        rotation = 90;
-    } else if(((textWidth < textHeight) === (dx < dy)) || !autoRotate) {
-        //if(constrained) scale = Math.min(dx / textWidth, dy / textHeight);
-    } else {
-        //rotation = 90;
-        //if(constrained) scale = Math.min(dy / textWidth, dx / textHeight);
-    }
 /*
     var isRotated = !!(Math.round((360 + rotation) / 90) % 1);
 
@@ -395,7 +399,7 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
         Math.abs(Math.cos(rotation)) :
         Math.abs(Math.sin(rotation));
 */
-    scale *= Math.max(
+    var scale = Math.max(
             Math.abs(Math.cos(rotation)),
             Math.abs(Math.sin(rotation))
     );
@@ -403,7 +407,8 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
     if(constrained) {
         scale = Math.min(
             Math.min(dx / textWidth, dy / textHeight),
-            Math.min(dy / textWidth, dx / textHeight)
+
+            1 //Math.min(dy / textWidth, dx / textHeight)
         );
     }
 
@@ -412,12 +417,8 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
     var targetY = (y0 + y1) / 2;
 
     if(anchor !== 'middle') {
-
-
-        //var targetWidth = scale * textWidth; //(isRotated ? textHeight : textWidth);  //* Math.abs(Math.sin(rotation));
-        //var targetHeight = scale * textHeight; //(isRotated ? textWidth : textHeight); //* Math.abs(Math.cos(rotation));
-        var targetWidth = scale * Math.max(textWidth, textHeight); //(isRotated ? textHeight : textWidth);  //* Math.abs(Math.sin(rotation));
-        var targetHeight = scale * Math.max(textWidth, textHeight); //(isRotated ? textWidth : textHeight); //* Math.abs(Math.cos(rotation));
+        var targetWidth = scale * (isAutoRotated ? textHeight : textWidth);
+        var targetHeight = scale * (isAutoRotated ? textWidth : textHeight);
 
         var offset;
         if(isHorizontal) {
