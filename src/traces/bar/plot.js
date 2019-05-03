@@ -353,57 +353,46 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
     // compute text and target positions
     var textWidth = textBB.width;
     var textHeight = textBB.height;
-    var textX = (textBB.left + textBB.right) / 2;
-    var textY = (textBB.top + textBB.bottom) / 2;
-    var barWidth = Math.abs(x1 - x0);
-    var barHeight = Math.abs(y1 - y0);
+    var lx = Math.abs(x1 - x0);
+    var ly = Math.abs(y1 - y0);
 
     var rotation = getRotationFromAngle(angle);
     var autoRotate = (angle === 'auto');
     var isAutoRotated = false;
     if(autoRotate) {
-        if(textWidth <= barWidth && textHeight <= barHeight) {
+        if(textWidth <= lx && textHeight <= ly) {
             // no need to fit in other direction
-        } else if(textWidth <= barHeight && textHeight <= barWidth) {
+        } else if(
+            (textWidth <= ly && textHeight <= lx) ||
+            (textWidth < textHeight) !== (lx < ly)
+         ) {
             isAutoRotated = true;
-        } else if((textWidth < textHeight) === (barWidth < barHeight)) {
-            // do nothing!
-        } else {
-            isAutoRotated = true;
-        }
 
-        if(isAutoRotated) {
             // don't rotate yet only swap bar width with height
-            var tmp = barHeight;
-            barHeight = barWidth;
-            barWidth = tmp;
+            var tmp = ly;
+            ly = lx;
+            lx = tmp;
         }
     }
 
-    var sin = Math.sin(rotation);
-    var cos = Math.cos(rotation);
+    var absSin = Math.abs(Math.sin(rotation));
+    var absCos = Math.abs(Math.cos(rotation));
 
-    var lx = barWidth;
-    var ly = barHeight;
+    // compute and apply text padding
+    var dx = Math.max(lx * absCos, ly * absSin);
+    var dy = Math.max(lx * absSin, ly * absCos);
+    var textpad = (
+        dx > (2 * TEXTPAD) &&
+        dy > (2 * TEXTPAD)
+    ) ? TEXTPAD : 0;
+    dx -= 2 * textpad;
+    dy -= 2 * textpad;
 
-    var dx = Math.max(lx * Math.abs(cos), ly * Math.abs(sin));
-    var dy = Math.max(lx * Math.abs(sin), ly * Math.abs(cos));
-
-    var textpad;
-    if(dx > (2 * TEXTPAD) && dy > (2 * TEXTPAD)) {
-        textpad = TEXTPAD;
-        dx -= 2 * textpad;
-        dy -= 2 * textpad;
-    } else textpad = 0;
-
-    var scale = Math.max(
-            Math.abs(Math.cos(rotation)),
-            Math.abs(Math.sin(rotation))
-    );
+    var scale = Math.max(absCos, absSin);
     if(constrained) {
         scale = Math.min(
-            Math.abs(dx / textWidth),
-            Math.abs(dy / textHeight)
+            dx / textWidth,
+            dy / textHeight
         );
     }
     scale = Math.min(1, scale);
@@ -412,27 +401,23 @@ function getTransformToMoveInsideBar(x0, x1, y0, y1, textBB, isHorizontal, const
     var targetX = (x0 + x1) / 2;
     var targetY = (y0 + y1) / 2;
 
-    if(anchor !== 'middle') {
+    if(anchor !== 'middle') { // case of 'start' or 'end'
         var flip = xor(!isHorizontal, isAutoRotated);
         var offset = textpad + (0.5 * scale * (flip ? textBB.width : textBB.height));
 
         if(isHorizontal) {
             offset *= dirSign(x0, x1);
-            if(anchor === 'start') {
-                targetX = x0 + offset;
-            } else { // case 'end'
-                targetX = x1 - offset;
-            }
+            targetX = (anchor === 'start') ? x0 + offset : x1 - offset;
         } else {
             offset *= dirSign(y0, y1);
-            if(anchor === 'start') {
-                targetY = y0 + offset;
-            } else { // case 'end'
-                targetY = y1 - offset;
-            }
+            targetY = (anchor === 'start') ? y0 + offset : y1 - offset;
         }
     }
 
+    var textX = (textBB.left + textBB.right) / 2;
+    var textY = (textBB.top + textBB.bottom) / 2;
+
+    // lastly apply auto rotation
     if(isAutoRotated) rotation += 90;
 
     return getTransform(textX, textY, targetX, targetY, scale, rotation);
